@@ -8,6 +8,7 @@ import pandas as pd
 
 """
 TODO
+- add data validation
 - create workouts a week at a time so exercises don't repeat the next day
 - incorporate weights so that exercise pairs are convenient
 - rank exercise pairs higher if there are more different
@@ -68,36 +69,76 @@ MUSCLE_GROUPS = {
         "rhomboids",
     ],
 }
-ATTEMPTS = 5
+OPTIMIZATION_ATTEMPTS = 10
+NUM_WORKOUTS = 7
 
 
 def swol():
+    # fetch and organize data into convenient data structures
     muscles_by_exercise = get_muscles_by_exercise()
     exercises_by_muscle = get_exercises_by_muscle(muscles_by_exercise)
+    breakpoint()
     exercises_by_group = get_exercises_by_group(exercises_by_muscle)
-    groups = get_muscle_groups()
-    possible_workouts = [get_workout(exercises_by_group, groups) for _ in range(ATTEMPTS)]
-    todays_workout = get_todays_workout(possible_workouts, muscles_by_exercise)
-    print_todays_workout(todays_workout)
+
+    # create and print workouts
+    timestamp = datetime.now()
+    todays_workout = []
+    for _ in range(7):
+        timestamp += timedelta(days=1)
+        todays_workout, groups = get_todays_workout(
+            muscles_by_exercise,
+            exercises_by_group,
+            timestamp,
+            todays_workout,
+        )
+        print_todays_workout(todays_workout, groups, timestamp)
 
 
-def print_todays_workout(todays_workout):
+def get_todays_workout(
+    muscles_by_exercise,
+    exercises_by_group,
+    timestamp,
+    yesterdays_workout,
+):
+    groups = get_muscle_groups(timestamp)
+    possible_workouts = [get_workout(exercises_by_group, groups, yesterdays_workout) for _ in range(OPTIMIZATION_ATTEMPTS)]
+    todays_workout = choose_workout(possible_workouts, muscles_by_exercise)
+
+    return todays_workout, groups
+
+
+def print_todays_workout(todays_workout, groups, timestamp):
+    DATE_FORMAT = "%A, %-m/%-d/%Y"
+
+    print(f"workout for {timestamp.strftime(DATE_FORMAT)} ({groups[0]}, {groups[1]})".upper())
     for exercise in todays_workout:
         print(exercise)
-    print(":)")
+    print("\n\n")
 
 
-def get_workout(exercises_by_group, groups):
+def get_workout(exercises_by_group, groups, yesterdays_workout):
+    def sort_exercises(workout):
+        # TODO implement
+        return workout
+
     workout = []
     for group in groups:
-        possible_exercises = set(exercises_by_group[group]).difference(set(workout))
+        possible_exercises = set(exercises_by_group[group])  # dedupe exercises in a group
+        possible_exercises = possible_exercises.difference(set(workout))  # dedupe exercises between groups
+        possible_exercises = possible_exercises.difference(set(yesterdays_workout))  # dedupe exercises from yesterday
         sample = random.sample(possible_exercises, EXERCISES_PER_GROUP)
         workout.extend(sample)
+
+    try:
+        workout = sort_exercises(workout)
+    except AssertionError:
+        print("FAILED TO SORT EXERCISES!!")
+        return get_workout(exercises_by_group, groups, yesterdays_workout)
 
     return workout
 
 
-def get_todays_workout(possible_workouts, muscles_by_exercise):
+def choose_workout(possible_workouts, muscles_by_exercise):
     def get_score(muscles):
         """
         choose workouts that focus on similar muscles
@@ -149,24 +190,14 @@ def get_exercises_by_group(exercises_by_muscle):
     for group, muscles in MUSCLE_GROUPS.items():
         exercises_by_group[group] = exercises_by_group.get(group, [])
         for muscle in muscles:
-            exercises_by_group[group].extend(exercises_by_muscle[muscle])
+            exercises = exercises_by_muscle.get(muscle, [])
+            exercises_by_group[group].extend(exercises)
 
     return exercises_by_group
 
 
-def get_muscle_groups():
-    DATE_FORMAT = "%A, %-m/%-d/%Y"
-
-    timestamp = datetime.now()
-    if FOR_TOMORROW:
-        timestamp += timedelta(days=1)
-
-    weekday = timestamp.weekday()
-    groups = SCHEDULE[weekday]
-
-    print(f"workout for {timestamp.strftime(DATE_FORMAT)} ({groups[0]}, {groups[1]})".upper())
-
-    return groups
+def get_muscle_groups(timestamp):
+    return SCHEDULE[timestamp.weekday()]
 
 
 swol()
