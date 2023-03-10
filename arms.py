@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from datetime import datetime, timedelta
 import random
 
 import pandas as pd
@@ -12,28 +11,20 @@ TODO
 """
 
 
-SCHEDULE = (
-    ("arms", "shoulders"),  # Monday
-#    ("chest", "back"),      # Tuesday
-    ("arms", "shoulders"),  # Wednesday
-#    ("core", "legs"),       # Thursday
-#    ("chest", "back"),      # Friday
-    ("arms", "shoulders"),  # Saturday
-#    ("chest", "back"),      # Sunday
-)
+NUM_WORKOUTS = 4
 EXERCISES_PER_GROUP = 3
+FOCUS_MUSCLE_GROUPS = ("arms", "shoulders")
 OPTIMIZATION_ATTEMPTS = 10
-NUM_WORKOUTS = 7
 SHEET_ID = "11lRtA-7zxK1OUACGokvvH60mWBB3i7--0D8jwCrCuKg"
 EXERCISES_SHEET_NAME = "EXERCISES"
 MUSCLE_GROUPS_SHEET_NAME = "MUSCLE_GROUPS"
 DATE_FORMAT = "%A, %-m/%-d/%Y"
 MUSCLE_FACTOR = 2  # higher number will select workouts that focus on certain muscles
 WEIGHT_FACTOR = 2  # higher number will select workouts that focus on certain weights
-PAIR_FACTOR = 2  # higher number will select workouts with pairs that overlap less
+PAIR_FACTOR = 3  # higher number will select workouts with pairs that overlap less
 
 
-def swol():
+def arms():
     # fetch and organize data into convenient data structures
     muscles_by_exercise = get_muscles_by_exercise()
     exercises_by_muscle = get_exercises_by_muscle(muscles_by_exercise)
@@ -41,27 +32,22 @@ def swol():
     exercises_by_group = get_exercises_by_group(muscle_groups, exercises_by_muscle)
 
     # create and print workouts
-    timestamp = datetime.now()
-    timestamp += timedelta(days=-1)
     todays_workout = []
-    for _ in range(NUM_WORKOUTS):
-        timestamp += timedelta(days=1)
+    for i in range(NUM_WORKOUTS):
         todays_workout, groups = get_todays_workout(
             muscles_by_exercise,
             exercises_by_group,
-            timestamp,
             todays_workout,
         )
-        print_todays_workout(todays_workout, groups, timestamp)
+        print_todays_workout(todays_workout, groups, i)
 
 
 def get_todays_workout(
     muscles_by_exercise,
     exercises_by_group,
-    timestamp,
     yesterdays_workout,
 ):
-    groups = get_todays_muscle_groups(timestamp)
+    groups = FOCUS_MUSCLE_GROUPS
     possible_workouts = [get_workout(exercises_by_group, groups, yesterdays_workout) for _ in range(OPTIMIZATION_ATTEMPTS)]
     possible_workouts = [workout for workout in possible_workouts if workout is not None]
     todays_workout = choose_workout(possible_workouts, muscles_by_exercise)
@@ -69,11 +55,12 @@ def get_todays_workout(
     return todays_workout, groups
 
 
-def print_todays_workout(todays_workout, groups, timestamp):
-    print(f"workout for {timestamp.strftime(DATE_FORMAT)} ({groups[0]}, {groups[1]})".upper())
+def print_todays_workout(todays_workout, groups, i):
+    print(f"WORKOUT {i + 1}")
     for exercise in todays_workout:
         name, weight, reps = exercise
         print(f"{name}, {weight}s, {reps}x")
+        print(f"1\n2\n3")
     print("\n")
 
 
@@ -206,9 +193,4 @@ def get_exercises_by_group(muscle_groups, exercises_by_muscle):
     return exercises_by_group
 
 
-def get_todays_muscle_groups(timestamp):
-    return SCHEDULE[0]
-    #return SCHEDULE[timestamp.weekday()]
-
-
-swol()
+arms()
