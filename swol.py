@@ -14,12 +14,12 @@ TODO
 
 SCHEDULE = (
     ("arms", "shoulders"),  # Monday
-#    ("chest", "back"),      # Tuesday
+    ("chest", "back"),      # Tuesday
     ("arms", "shoulders"),  # Wednesday
-#    ("core", "legs"),       # Thursday
-#    ("chest", "back"),      # Friday
+    ("core", "legs"),       # Thursday
+    ("chest", "back"),      # Friday
     ("arms", "shoulders"),  # Saturday
-#    ("chest", "back"),      # Sunday
+    ("chest", "back"),      # Sunday
 )
 EXERCISES_PER_GROUP = 3
 OPTIMIZATION_ATTEMPTS = 10
@@ -207,8 +207,7 @@ def get_exercises_by_group(muscle_groups, exercises_by_muscle):
 
 
 def get_todays_muscle_groups(timestamp):
-    return SCHEDULE[0]
-    #return SCHEDULE[timestamp.weekday()]
+    return SCHEDULE[timestamp.weekday()]
 
 
 swol()
