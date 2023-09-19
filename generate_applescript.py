@@ -6,14 +6,14 @@ from random import randrange
 
 
 # blake
-#SHEET_LINK = "https://docs.google.com/spreadsheets/d/1chUvK9Bv5NALVYzXa47DarZjs_RM_NcFEA1KCaJwXRQ/edit?usp=sharing"
-#LOWER_BOUND = 7   # 7am
-#UPPER_BOUND = 21  # 9pm
+SHEET_LINK = "https://docs.google.com/spreadsheets/d/1chUvK9Bv5NALVYzXa47DarZjs_RM_NcFEA1KCaJwXRQ/edit?usp=sharing"
+LOWER_BOUND = 7   # 7am
+UPPER_BOUND = 21  # 9pm
 
 # amber
-SHEET_LINK = "https://docs.google.com/spreadsheets/d/1tjkGfl6iQwzfSq4YFpwD04Kt2fDr6ybChwJtBqOJxSs/edit?usp=sharing"
-LOWER_BOUND = 7   # 7am
-UPPER_BOUND = 20  # 8pm
+#SHEET_LINK = "https://docs.google.com/spreadsheets/d/1tjkGfl6iQwzfSq4YFpwD04Kt2fDr6ybChwJtBqOJxSs/edit?usp=sharing"
+#LOWER_BOUND = 7   # 7am
+#UPPER_BOUND = 20  # 8pm
 
 DATE_FORMAT = "%A, %-m/%-d/%Y at %-I:%M %p"  # Wednesday, 10/12/2022 at 5:41 PM
 
