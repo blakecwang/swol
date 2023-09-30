@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Any
 import random
 
 import pandas as pd
@@ -89,7 +90,7 @@ class SwolRandom:
     def _weighted_sample(self, exercise_pool: list[Exercise], sample_size: int) -> list[Exercise]:
         sample = []
         for _ in range(sample_size):
-            counts = defaultdict(int)
+            counts: defaultdict = defaultdict(int)
             for exercise in exercise_pool:
                 counts[exercise.day] += 1
             sample_weights = [SAMPLE_WEIGHT_MAP[ex.day] / counts[ex.day] for ex in exercise_pool]
@@ -120,15 +121,18 @@ class SwolRandom:
     def get_swol(self) -> None:
         self.all_exercises = self._get_all_exercises()
         for i in range(NUM_WORKOUTS):
+            workout_num = i + 1
             workout = None
             counter = 0
-            while workout is None and counter < 20:
+            max_attempts = 20
+            while workout is None and counter < max_attempts:
                 try:
                     workout = self._create_workout()
                 except IndexError:
                     pass
                 counter += 1
-            workout_num = i + 1
+            if workout is None:
+                raise Exception(f"Couldn't create workout within {max_attempts} attempts!")
             self._print_workout(workout, workout_num)
 
 
