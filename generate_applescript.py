@@ -7,8 +7,8 @@ from random import randrange
 
 # blake
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1chUvK9Bv5NALVYzXa47DarZjs_RM_NcFEA1KCaJwXRQ/edit?usp=sharing"
-LOWER_BOUND = 7   # 7am
-UPPER_BOUND = 21  # 9pm
+LOWER_BOUND = 6   # 6am
+UPPER_BOUND = 20  # 8pm
 
 # amber
 #SHEET_LINK = "https://docs.google.com/spreadsheets/d/1tjkGfl6iQwzfSq4YFpwD04Kt2fDr6ybChwJtBqOJxSs/edit?usp=sharing"
@@ -27,7 +27,8 @@ curr = datetime(curr.year, curr.month, curr.day, LOWER_BOUND)
 date_strs = []
 for i in range(120):
     minutes = randrange(minutes_per_day)
-    date_str = (curr + timedelta(minutes=minutes)).strftime(DATE_FORMAT)
+    date_str = (curr + timedelta(minutes=minutes) - timedelta(minutes=0.5)).strftime(DATE_FORMAT)
+    #date_str = (curr + timedelta(minutes=minutes)).strftime(DATE_FORMAT)
     date_strs.append(date_str)
     curr += timedelta(days=1)
 
@@ -47,8 +48,8 @@ for date_str in date_strs:
         '\t\t' +
         'make new reminder at end with properties {name:"Collect data for ' +
         date_str +
-        ': ' +
-        SHEET_LINK +
+        #': ' +
+        #SHEET_LINK +
         '", due date:date "' +
         date_str +
         '"}'
