@@ -18,6 +18,7 @@ LOGIN_WHITELIST = [
     "nmurphy101",
     "jeremy-cap-rx",
     "dch-cap-rx",
+    "FlGrown",
 ]
 START_DATE = arrow.now().shift(weeks=-2)
 
