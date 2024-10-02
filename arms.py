@@ -60,7 +60,7 @@ def print_todays_workout(todays_workout, groups, i):
     for exercise in todays_workout:
         name, weight, reps = exercise
         print(f"{name}, {weight}s, {reps}x")
-        print(f"1\n2\n3")
+        print("1\n2\n3")
     print("\n")
 
 

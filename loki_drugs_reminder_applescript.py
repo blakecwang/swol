@@ -5,7 +5,6 @@ Remind me to give Loki his drugs on the second Monday of each month at 11am
 """
 
 import datetime
-from random import randrange
 
 
 DATE_FORMAT = "%A, %-m/%-d/%Y at %-I:%M %p"  # Wednesday, 10/12/2022 at 5:41 PM
