@@ -20,7 +20,6 @@ LOGIN_WHITELIST = [
     "dch-cap-rx",
 ]
 START_DATE = arrow.now().shift(weeks=-2)
-PLACES = 10
 
 query = """
 query($repoOwner: String!, $repoName: String!, $after: String) {
@@ -32,6 +31,9 @@ query($repoOwner: String!, $repoName: String!, $after: String) {
           nodes {
             author {
               login
+              ... on User {
+                name
+              }
             }
             createdAt
           }
@@ -59,32 +61,32 @@ if __name__ == "__main__":
     pr_created_at = arrow.now()
     while pr_created_at > START_DATE:
         resp = requests.post(
-            'https://api.github.com/graphql',
+            "https://api.github.com/graphql",
             json={"query": query, "variables": variables},
             headers={"Authorization": f"Bearer {token}"}
         )
 
         body = resp.json()
 
-        for pr_node in body['data']['repository']['pullRequests']['nodes']:
-            pr_created_at = arrow.get(pr_node['createdAt'])
-            for review_node in pr_node['reviews']['nodes']:
+        for pr_node in body["data"]["repository"]["pullRequests"]["nodes"]:
+            pr_created_at = arrow.get(pr_node["createdAt"])
+            for review_node in pr_node["reviews"]["nodes"]:
                 if (
-                    arrow.get(review_node['createdAt']) > START_DATE
-                    and (login := review_node['author']['login']) in LOGIN_WHITELIST
+                    arrow.get(review_node["createdAt"]) > START_DATE
+                    and (login := review_node["author"]["login"]) in LOGIN_WHITELIST
                 ):
-                    logins.append(login)
+                    name = review_node["author"]["name"]
+                    logins.append(name or login)
 
-        page_info = body['data']['repository']['pullRequests']['pageInfo']
+        page_info = body["data"]["repository"]["pullRequests"]["pageInfo"]
 
-        if not page_info['hasNextPage']:
+        if not page_info["hasNextPage"]:
             break
 
-        variables["after"] = page_info['endCursor']
+        variables["after"] = page_info["endCursor"]
 
     rows = [(count, login) for login, count in Counter(logins).items()]
     rows.sort(reverse=True)
-    rows = rows[:PLACES]
 
     for row in rows:
         print(row)
