@@ -1,0 +1,350 @@
+#!/usr/bin/env python
+
+import argparse
+import heapq
+import json
+import os
+import sys
+import uuid
+from contextlib import nullcontext
+from datetime import datetime
+from typing import Generator
+
+import arrow
+import botocore.session
+from humanfriendly import InvalidTimespan, parse_timespan
+
+bs = botocore.session.get_session()
+logs_client = bs.create_client("logs")
+
+EXCLUDE_FILE_PATH = "/tmp/exclude_logs.txt"
+
+EPILOG = """\
+############ Examples ############
+# Get all logs in a specific log stream with aws request id (back compatible).
+run-env prod get-logs /aws/lambda/pa_process_epa_messages '2025/12/09/[$LATEST]e6575c1724984501a7199120603df126' 977050d5-be24-4649-b5b9-3087b5773fba
+
+# Get truncated error logs across all PA log groups/streams in the past hour.
+run-env prod get-logs /aws/lambda/pa ALL '"[ERROR]"' --as-prefix --truncate --start-time 1h
+
+# Get warning logs across all PA api log streams within a time window, excluding certain strings.
+run-env prod get-logs /aws/lambda/pa ALL '"[WARNING]"' --start-time '2025-12-09 00:03:10.711000' --end-time '2025-12-09 00:04:10.711000' --exclude RemoteProtocolError pa_analyze_fax
+
+# Get PA auditor logs from all streams at an approximate time.
+run-env prod get-logs /aws/lambda/pa_auditor ALL --approx-time '2025-12-09 00:03:10.711000'
+"""
+
+HeapItem = tuple[int, str, str]
+
+
+def get_logs(
+    *,
+    group_name_arg: str,
+    stream_name_arg: str,
+    filter_pattern_arg: str | None,
+    start_time: int | None,
+    end_time: int | None,
+    approx_time: int | None,
+    as_prefix: bool,
+    truncate: bool,
+    oxygenate: bool,
+    exclude: list | None,
+    outfile: str | None,
+) -> None:
+    # +/- 10s window around approximate time (value is in millis).
+    if approx_time:
+        start_time = approx_time - 10000
+        end_time = approx_time + 10000
+
+    # Build exclude list (CLI + optional file).
+    exclude = exclude or []
+    if os.path.exists(EXCLUDE_FILE_PATH):
+        with open(EXCLUDE_FILE_PATH) as fp:
+            exclude += [stripped for line in fp.readlines() if (stripped := line.strip())]
+
+    # Determine target log groups.
+    if as_prefix:
+        group_names = _get_group_names_by_prefix(group_name_arg, exclude)
+    else:
+        group_names = [group_name_arg]
+
+    # Base args for FilterLogEvents; we mutate per-group and per-page (nextToken).
+    filter_log_events_args_base: dict = {
+        "filterPattern": _construct_filter_pattern(filter_pattern_arg, exclude),
+    }
+    if stream_name_arg != "ALL":
+        filter_log_events_args_base["logStreamNames"] = stream_name_arg.split(",")
+    if start_time:
+        filter_log_events_args_base["startTime"] = start_time
+    if end_time:
+        filter_log_events_args_base["endTime"] = end_time
+
+    # Safety prompt if searching entire groups without bounds/streams.
+    if (
+        not set(filter_log_events_args_base) & {"logStreamNames", "startTime", "endTime"}
+        and input("Search ENTIRE log group(s)? (Y/n): ") != "Y"
+    ):
+        sys.exit(0)
+
+    group_iters = {g: _iter_log_events(g, filter_log_events_args_base) for g in group_names}
+    heap: list[HeapItem] = []  # (timestamp, group_name, event)
+
+    # Prime heap with first event from each group
+    for group_name, group_iter in group_iters.items():
+        if event := next(group_iter, None):
+            item: HeapItem = (event["timestamp"], group_name, event["message"])
+            heap.append(item)
+
+    heapq.heapify(heap)
+
+    # Merge loop: pop earliest timestamp, emit, then push next event from same log group.
+    while heap:
+        timestamp, group_name, message = heapq.heappop(heap)
+
+        try:
+            message = json.dumps(json.loads(message), indent=4)
+        except Exception:
+            pass
+
+        if truncate:
+            message = message[:500]
+
+        if not message.endswith("\n"):
+            message += "\n"
+
+        if oxygenate:
+            message += "\n"
+
+        dt = datetime.fromtimestamp(timestamp / 1000.0)
+
+        ctx = open(outfile, mode="a") if outfile else nullcontext(sys.stdout)
+
+        with ctx as out:  # type: ignore
+            if as_prefix:
+                out.write(f"{group_name} {dt} {message}")
+            else:
+                out.write(f"{dt} {message}")
+            out.flush()
+
+        if next_event := next(group_iters[group_name], None):
+            next_item: HeapItem = (next_event["timestamp"], group_name, next_event["message"])
+            heapq.heappush(heap, next_item)
+
+
+def _iter_log_events(group_name: str, filter_log_events_args_base: dict) -> Generator:
+    """
+    --- Streaming k-way merge (min-heap) across per-group iterators ---
+    Each group's iterator yields events already sorted by timestamp.
+    We keep memory bounded to ~one event per group in the heap.
+    """
+
+    next_token = None
+    while True:
+        filter_log_events_args = filter_log_events_args_base.copy()
+        filter_log_events_args["logGroupName"] = group_name
+        if next_token:
+            filter_log_events_args["nextToken"] = next_token
+
+        res = logs_client.filter_log_events(**filter_log_events_args)
+
+        for event in res["events"]:
+            yield event
+
+        next_token = res.get("nextToken")
+        if not next_token:
+            break
+
+
+def _parse_datetime(datetime_str: str | None) -> int | None:
+    """Return epoch millis for a humanfriendly timespan or arrow-parseable timestamp string."""
+
+    if datetime_str is None:
+        return None
+
+    try:
+        # Look back.
+        parsed = arrow.utcnow().shift(seconds=-parse_timespan(datetime_str))
+
+    except InvalidTimespan:
+        parsed = arrow.get(datetime_str)
+
+    return int(parsed.float_timestamp * 1000)
+
+
+def _construct_filter_pattern(filter_pattern_arg: str | None, exclude: list[str]) -> str:
+    """Compose CloudWatch Logs filter pattern, supporting UUID special-case and excludes."""
+
+    if filter_pattern_arg and filter_pattern_arg.startswith("{"):
+        return _construct_json_filter_pattern(filter_pattern_arg, exclude)
+
+    parts = []
+    if filter_pattern_arg:
+        try:
+            # Special handling for aws request id (UUID) for back compatibility.
+            filter_pattern = f'"{uuid.UUID(filter_pattern_arg)}"'
+        except ValueError:
+            filter_pattern = filter_pattern_arg
+        parts.append(filter_pattern)
+
+    if exclude:
+        # Prefix '-' to negate; quote strings that don't already contain quotes.
+        exclude = [f"-{s}" if '"' in s else f'-"{s}"' for s in exclude]
+        parts.extend(exclude)
+
+    filter_pattern = " ".join(parts) or '" "'
+
+    return filter_pattern
+
+
+def _construct_json_filter_pattern(filter_pattern_arg: str, exclude: list[str]) -> str:
+    """Compose CloudWatch Logs filter pattern for JSON Logs."""
+
+    if not exclude:
+        return filter_pattern_arg
+
+    suffix = " }"
+    if not filter_pattern_arg.endswith(suffix):
+        raise Exception(f"Invalid filter pattern for JSON logs: {filter_pattern_arg}")
+
+    filter_pattern_arg = filter_pattern_arg[:-len(suffix)]
+
+    for exclude_str in exclude:
+        filter_pattern_arg += f' && $.error_code != "{exclude_str}"'
+
+    filter_pattern_arg += suffix
+
+    return filter_pattern_arg
+
+
+def _get_group_names_by_prefix(group_name_prefix: str, exclude: list[str]) -> list[str]:
+    """List log groups by prefix, optionally excluding whole groups."""
+
+    group_names: list[str] = []
+    next_token = None
+
+    describe_log_groups_args_base: dict = {
+        "logGroupNamePrefix": group_name_prefix,
+    }
+
+    while True:
+        describe_log_groups_args = describe_log_groups_args_base.copy()
+        if next_token:
+            describe_log_groups_args["nextToken"] = next_token
+
+        res = logs_client.describe_log_groups(**describe_log_groups_args)
+        for log_group in res["logGroups"]:
+            group_name = log_group["logGroupName"]
+
+            # In my experience, these log groups are never useful.
+            if os.getenv("GET_LOGS_SMART_PREFIX") and group_name.startswith(group_name_prefix + "/"):
+                continue
+
+            # Allow for excluding entire log groups.
+            if group_name in exclude:
+                exclude.remove(group_name)
+            else:
+                group_names.append(group_name)
+
+        next_token = res.get("nextToken")
+        if not next_token:
+            break
+
+    return group_names
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Display CloudWatch logs in your terminal.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "group_name",
+        help="CloudWatch log group name.",
+    )
+    parser.add_argument(
+        "stream_name",
+        help="CloudWatch log stream name. Accepts comma-delimited list or 'ALL'.",
+    )
+    parser.add_argument(
+        "filter_pattern",
+        nargs="?",
+        help="CloudWatch filter pattern. Details: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html",
+    )
+    parser.add_argument(
+        "-s",
+        "--start-time",
+        type=_parse_datetime,
+        help=(
+            "Display log messages after this time. "
+            "Accepts humanfriendly timespan (relative look back) or ISO timestamp (absolute). "
+            "Details: https://humanfriendly.readthedocs.io/en/latest/api.html"
+        ),
+    )
+    parser.add_argument(
+        "-e",
+        "--end-time",
+        type=_parse_datetime,
+        help=(
+            "Display log messages before this time. "
+            "Accepts humanfriendly timespan (relative look back) or ISO timestamp (absolute). "
+            "Details: https://humanfriendly.readthedocs.io/en/latest/api.html"
+        ),
+    )
+    parser.add_argument(
+        "-a",
+        "--approx-time",
+        type=_parse_datetime,
+        help=(
+            "Display log messages +/- 5s from this time. "
+            "Accepts humanfriendly timespan (relative look back) or ISO timestamp (absolute). "
+            "Details: https://humanfriendly.readthedocs.io/en/latest/api.html"
+        ),
+    )
+    parser.add_argument(
+        "-p",
+        "--as-prefix",
+        action="store_true",
+        help="Search multiple log groups by treating group_name as a prefix.",
+    )
+    parser.add_argument(
+        "-t",
+        "--truncate",
+        action="store_true",
+        help="Truncate each log message to 500 chars.",
+    )
+    parser.add_argument(
+        "-g",
+        "--oxygenate",
+        action="store_true",
+        help="Add blank lines between log messages.",
+    )
+    parser.add_argument(
+        "-x",
+        "--exclude",
+        nargs="+",
+        help="Exclude log messages that contain provided substring(s).",
+    )
+    parser.add_argument(
+        "-o",
+        "--outfile",
+        help="Write output to provided filepath. Defaults to stdout.",
+    )
+
+    args = parser.parse_args()
+    if args.approx_time and (args.start_time or args.end_time):
+        parser.error("--approx-time cannot be used with --start-time or --end-time.")
+
+    get_logs(
+        group_name_arg=args.group_name,
+        stream_name_arg=args.stream_name,
+        filter_pattern_arg=args.filter_pattern,
+        start_time=args.start_time,
+        end_time=args.end_time,
+        approx_time=args.approx_time,
+        as_prefix=args.as_prefix,
+        truncate=args.truncate,
+        oxygenate=args.oxygenate,
+        exclude=args.exclude,
+        outfile=args.outfile,
+    )
