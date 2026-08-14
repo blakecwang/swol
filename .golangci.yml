@@ -1,0 +1,49 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+linters-settings:
+  gofumpt:
+    # Enforce extra-strict formatting rules
+    extra-rules: true
+
+  govet:
+    # Enable all standard Go compiler analysis checks
+    enable-all: true
+    disable:
+      - fieldalignment # Turn off struct field packing advice for beginners
+
+  gocritic:
+    # Highly opinionated style, diagnostic, and performance checks
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - opinionated
+
+  revive:
+    # A modern drop-in replacement for the deprecated golint
+    rules:
+      - name: exported
+      - name: indent-error-flow
+      - name: error-return
+      - name: unused-parameter
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck     # Catches unhandled errors (critical for learning Go)
+    - govet        # Standard compiler-like bugs and traps
+    - staticcheck  # Highly respected, catches subtle logical bugs
+    - unused       # Finds unused variables, constants, and functions
+    - gofumpt      # Your strict, opinionated formatter
+    - gocritic     # Micro-optimizations and opinionated style checks
+    - revive       # Stylistic best practices
+    - bodyclose    # Ensures you close HTTP response bodies (common bug)
+
+issues:
+  # Don't hide common errors; show everything on the first pass
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
