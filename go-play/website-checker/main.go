@@ -32,6 +32,16 @@ func CheckWebsite(url string, results chan<- Result) {
 	}
 }
 
+func AverageDuration(durations map[string]time.Duration) time.Duration {
+	var total time.Duration
+
+	for _, duration := range durations {
+		total += duration
+	}
+
+	return total / time.Duration(len(durations))
+}
+
 func main() {
 	results := make(chan Result)
 
@@ -70,4 +80,6 @@ func main() {
 	for website, duration := range durations {
 		fmt.Printf("%s: %v\n", website, duration)
 	}
+
+	fmt.Printf("\nAverage duration: %v\n", AverageDuration(durations))
 }
