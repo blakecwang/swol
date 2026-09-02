@@ -17,7 +17,7 @@ func main() {
 		fmt.Printf("%d\n", i)
 	}
 
-	// conditional - goes until condition is true (like 'while')
+	// conditional - goes until condition is not true (like 'while')
 	i := 0
 	for i < 5 {
 		fmt.Printf("%d\n", i)
