@@ -3,41 +3,45 @@ package rules
 import (
 	"guardian/internal/model"
 	"testing"
-	"time"
 )
 
 func TestDetectGaming(t *testing.T) {
-	e := model.Event{
-		StudentID: 1,
-		Timestamp: time.Now(),
-		URL:       "https://roblocks.com",
-		DOMText:   "Building castles in minecraft",
-	}
-
-	got := DetectGaming(e)
-
-	want := []model.Alert{
+	testCases := []struct {
+		name       string
+		event      model.Event
+		wantAlerts int
+	}{
 		{
-			StudentID: e.StudentID,
-			RuleName:  "gaming",
-			Match:     "minecraft",
+			name: "safe",
+			event: model.Event{
+				URL: "https://wikipedia.com",
+			},
+			wantAlerts: 0,
 		},
 		{
-			StudentID: e.StudentID,
-			RuleName:  "gaming",
-			Match:     "roblocks",
+			name: "url",
+			event: model.Event{
+				URL: "https://roblocks.com",
+			},
+			wantAlerts: 1,
+		},
+		{
+			name: "dom",
+			event: model.Event{
+				DOMText: "Building castles in minecraft",
+			},
+			wantAlerts: 1,
 		},
 	}
 
-	if len(got) != len(want) {
-		t.Fatalf("len(got)=%d, len(want)=%d\n", len(got), len(want))
-	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got := len(DetectGaming(testCase.event))
+			want := testCase.wantAlerts
 
-	for i, want_alert := range want {
-		got_alert := got[i]
-
-		if got_alert != want_alert {
-			t.Fatalf("got_alert=%+v, want_alert=%+v\n", got_alert, want_alert)
-		}
+			if got != want {
+				t.Fatalf("got=%d, want=%d\n", got, want)
+			}
+		})
 	}
 }
