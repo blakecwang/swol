@@ -8,6 +8,7 @@
 set nocompatible          " Disable compatibility with old vi
 filetype plugin indent on " Enable detection, plugins, and indenting for filetypes
 syntax on                 " Enable syntax highlighting
+" autocmd BufNewFile,BufRead *.spec.ts set filetype=typescript  " Treat .spec.ts as .ts
 
 set number               " Show line numbers
 set mouse-=a             " Disnable mouse support in all modes
@@ -50,6 +51,14 @@ Plug 'tpope/vim-fugitive'
 " The only plugin you need for JS/Node navigation
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 
+" Lighter TypeScript syntax highlighting. Vim's own bundled syntax/typescript.vim
+" is yats.vim under the hood, which can catastrophically backtrack on some
+" files ('redrawtime exceeded' + hangs while editing). vim-plug puts this
+" plugin's syntax file earlier in 'runtimepath' than Vim's bundled one, so it
+" loads first, sets b:current_syntax, and the slow bundled version skips
+" itself automatically - no extra config needed.
+Plug 'leafgarland/typescript-vim'
+
 " Protobuf file detection and syntax highlighting
 Plug 'google/protobuf', { 'rtp': 'editors/proto' }
 
@@ -71,6 +80,11 @@ let g:go_highlight_fields = 1
 let g:go_highlight_functions = 1
 let g:go_highlight_function_calls = 1
 let g:go_highlight_operators = 1
+
+" coc.nvim extensions (auto-installed/updated on startup)
+" coc-pyright adds Python navigation/completion (Microsoft's Pyright LSP),
+" reusing the same <C-]> / gd mappings below - no Python-specific keys needed.
+let g:coc_global_extensions = ['coc-pyright']
 
 " ----------------------------------------------------------------------------
 " 6. Key Mappings & Shortcuts
