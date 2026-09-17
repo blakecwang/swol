@@ -11,6 +11,23 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 source /Users/bwang/.goguardian
 
+# rbenv shell wrapper function
+command rbenv rehash 2>/dev/null
+rbenv() {
+  local command
+  command="${1:-}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+
+  case "$command" in
+  rehash|shell)
+    eval "$(rbenv "sh-$command" "$@")";;
+  *)
+    command rbenv "$command" "$@";;
+  esac
+}
+
 # Open files in GitHub.
 gho() {
   local file=$1
@@ -45,9 +62,18 @@ gho() {
   open "${remote_url}/blob/${branch}/${rel_path}"
 }
 
+# Preview Prettier formatting changes
+pd() {
+  if [ -z "$1" ]; then
+    echo "Usage: pd <file-path>"
+    return 1
+  fi
+  npx prettier "$1" | diff --color=always -u "$1" -
+}
+
 # Database shortcuts
-alias dba="mariadb -A -h admin-settings.write.stg.rds.internal.goguardian.com -u bwang -p'<REDACTED>' admin_settings"
-alias dbl="mariadb -A -h liminex-ent.write.stg.rds.internal.goguardian.com -u bwang -p'<REDACTED>' liminex_ent"
+alias dba="mariadb -A -h admin-settings.write.stg.rds.internal.goguardian.com -u bwang -p'$ADMIN_SETTINGS_DB_PASSWORD' admin_settings"
+alias dbl="mariadb -A -h liminex-ent.write.stg.rds.internal.goguardian.com -u bwang -p'$LIMINEX_ENT_DB_PASSWORD' liminex_ent"
 
 # Navigation
 alias li='cd /liminex/'

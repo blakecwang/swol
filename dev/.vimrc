@@ -26,6 +26,8 @@ set updatetime=300       " Faster completion and diagnostic updates
 set tabstop=4            " Number of visual spaces per tab
 set shiftwidth=4         " Number of spaces for auto-indent
 set noexpandtab          " Keep tabs as tabs (Crucial for Go)
+autocmd FileType javascript,typescript setlocal tabstop=2 shiftwidth=2 expandtab  " Set 2-space indentation specifically for JavaScript and TypeScript
+
 
 " ----------------------------------------------------------------------------
 " 3. Visuals & Aesthetics (Minimalist)
