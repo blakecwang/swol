@@ -98,9 +98,12 @@ _db_run() {
 stg-dba() { _db_run admin-settings.write.stg.rds.internal.goguardian.com admin_settings "$STG_ADMIN_SETTINGS_DB_PASSWORD" "$1"; }
 stg-dbl() { _db_run liminex-ent.write.stg.rds.internal.goguardian.com liminex_ent "$STG_LIMINEX_ENT_DB_PASSWORD" "$1"; }
 stg-dbr() { _db_run rawley.write.stg.rds.internal.goguardian.com rawley "$STG_RAWLEY_DB_PASSWORD" "$1"; }
+stg-dbx() { _db_run x3.write.stg.rds.internal.goguardian.com x3 "$STG_X3_DB_PASSWORD" "$1"; }
 prd-dba() { _db_run admin-settings.read.prod.rds.internal.goguardian.com admin_settings "$PRD_ADMIN_SETTINGS_DB_PASSWORD" "$1"; }
 prd-dbl() { _db_run liminex-ent.read.prod.rds.internal.goguardian.com liminex_ent "$PRD_LIMINEX_ENT_DB_PASSWORD" "$1"; }
 prd-dbr() { _db_run rawley.read.prod.rds.internal.goguardian.com rawley "$PRD_RAWLEY_DB_PASSWORD" "$1"; }
+prd-dbx() { _db_run x3.read.prod.rds.internal.goguardian.com x3 "$PRD_X3_DB_PASSWORD" "$1"; }
+
 
 
 # Navigation
