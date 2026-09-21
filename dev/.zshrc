@@ -1,3 +1,6 @@
+# .zshrc is for aliases and functions and runs on every terminal and
+# subterminal after .zprofile
+
 # prompt formatting
 autoload -Uz vcs_info
 precmd() { vcs_info }
@@ -62,19 +65,42 @@ gho() {
   open "${remote_url}/blob/${branch}/${rel_path}"
 }
 
-# Preview Prettier formatting changes
-pd() {
+# npx shortcuts
+npd() {
   if [ -z "$1" ]; then
     echo "Usage: pd <file-path>"
     return 1
   fi
   npx prettier "$1" | diff --color=always -u "$1" -
 }
+alias npw='npx prettier --write'
+alias npt='npx playwright test'
+alias nes="npx --prefix ~/.global-linter eslint -c ~/.global-linter/eslint.config.js"
+
 
 # Database shortcuts
-alias dba="mariadb -A -h admin-settings.write.stg.rds.internal.goguardian.com -u bwang -p'$ADMIN_SETTINGS_DB_PASSWORD' admin_settings"
-alias dbl="mariadb -A -h liminex-ent.write.stg.rds.internal.goguardian.com -u bwang -p'$LIMINEX_ENT_DB_PASSWORD' liminex_ent"
+_db_run() {
+    local host="$1" db="$2" pass="$3" arg="$4"
+
+    if [ -z "$pass" ]; then
+        echo "Error: password is not set." >&2
+        return 1
+    fi
+
+    if [ -z "$arg" ]; then
+        mariadb -A -h "$host" -u bwang -p"$pass" "$db"
+    elif [ -f "$arg" ]; then
+        mariadb -A -h "$host" -u bwang -p"$pass" "$db" < "$arg"
+    else
+        mariadb -A -h "$host" -u bwang -p"$pass" "$db" -e "$arg"
+    fi
+}
+dba() { _db_run admin-settings.write.stg.rds.internal.goguardian.com admin_settings "$ADMIN_SETTINGS_DB_PASSWORD" "$1"; }
+dbl() { _db_run liminex-ent.write.stg.rds.internal.goguardian.com liminex_ent "$LIMINEX_ENT_DB_PASSWORD" "$1"; }
+dbr() { _db_run rawley.write.stg.rds.internal.goguardian.com rawley "$RAWLEY_DB_PASSWORD" "$1"; }
+
 
 # Navigation
 alias li='cd /liminex/'
 alias gc='cd /liminex/gg4a/go-cortana/'
+alias gt='cd /liminex/gg4a/tests/'
