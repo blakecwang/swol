@@ -64,6 +64,12 @@ Plug 'leafgarland/typescript-vim'
 " Protobuf file detection and syntax highlighting
 Plug 'google/protobuf', { 'rtp': 'editors/proto' }
 
+" Claude integration for classic Vim
+Plug 'pasky/claude.vim'
+
+" Turn off highlight after you're done searching
+Plug 'romainl/vim-cool'
+
 call plug#end()
 
 " ----------------------------------------------------------------------------
@@ -72,9 +78,12 @@ call plug#end()
 
 " vim-go configuration (Keep it minimal and let gopls handle the heavy lifting)
 let g:go_gopls_enabled = 1
-let g:go_code_completion_enabled = 0          " Let vim-lsp handle completion
+" let g:go_code_completion_enabled = 0          " Let vim-lsp handle completion
 let g:go_fmt_command = "goimports"            " Auto-format and manage imports on save
-let g:go_diagnostics_enabled = 0              " Let vim-lsp handle errors to avoid duplicates
+" let g:go_diagnostics_enabled = 0              " Let vim-lsp handle errors to avoid duplicates
+let g:go_diagnostics_level = 2
+highlight goDiagnosticError   ctermfg=15 ctermbg=160 guifg=#ffffff guibg=#d70000
+highlight goDiagnosticWarning ctermfg=0  ctermbg=220 guifg=#000000 guibg=#ffd700
 
 " Highlight extra Go details for readability
 let g:go_highlight_types = 1

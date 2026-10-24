@@ -99,14 +99,88 @@ stg-dba() { _db_run admin-settings.write.stg.rds.internal.goguardian.com admin_s
 stg-dbl() { _db_run liminex-ent.write.stg.rds.internal.goguardian.com liminex_ent "$STG_LIMINEX_ENT_DB_PASSWORD" "$1"; }
 stg-dbr() { _db_run rawley.write.stg.rds.internal.goguardian.com rawley "$STG_RAWLEY_DB_PASSWORD" "$1"; }
 stg-dbx() { _db_run x3.write.stg.rds.internal.goguardian.com x3 "$STG_X3_DB_PASSWORD" "$1"; }
+stg-dbe() { _db_run app-ext.write.stg.rds.internal.goguardian.com liminex_ent "$STG_APP_EXT_DB_PASSWORD" "$1"; }
+stg-dbp() { _db_run panther.write.stg.rds.internal.goguardian.com panther "$STG_PANTHER_DB_PASSWORD" "$1"; }
+
 prd-dba() { _db_run admin-settings.read.prod.rds.internal.goguardian.com admin_settings "$PRD_ADMIN_SETTINGS_DB_PASSWORD" "$1"; }
 prd-dbl() { _db_run liminex-ent.read.prod.rds.internal.goguardian.com liminex_ent "$PRD_LIMINEX_ENT_DB_PASSWORD" "$1"; }
 prd-dbr() { _db_run rawley.read.prod.rds.internal.goguardian.com rawley "$PRD_RAWLEY_DB_PASSWORD" "$1"; }
 prd-dbx() { _db_run x3.read.prod.rds.internal.goguardian.com x3 "$PRD_X3_DB_PASSWORD" "$1"; }
+prd-dbp() { _db_run panther.read.prod.rds.internal.goguardian.com panther "$STG_PANTHER_DB_PASSWORD" "$1"; }
 
+
+# grep: skip node_modules on recursive searches (-r / -R)
+alias grep='grep --color=auto --exclude-dir=node_modules'
+
+# find: prune node_modules automatically
+find() {
+  local -a opts paths expr
+  # leading BSD find options (-H -L -P -E -X -d -s -x)
+  while [[ $1 == -[HLPEXdsx] ]]; do opts+=("$1"); shift; done
+  # paths come before the expression
+  while (( $# )) && [[ $1 != -* && $1 != '!' && $1 != '(' ]]; do paths+=("$1"); shift; done
+  (( ${#paths} )) || paths=(.)
+  expr=("$@")
+
+  if (( ${#expr} == 0 )); then
+    command find "${opts[@]}" "${paths[@]}" -name node_modules -prune -o -print
+  elif (( ${expr[(I)-(print|print0|exec|execdir|ok|delete|ls|fprint)]} )); then
+    # the expression already has an action, so don't add -print
+    command find "${opts[@]}" "${paths[@]}" -name node_modules -prune -o \( "${expr[@]}" \)
+  else
+    command find "${opts[@]}" "${paths[@]}" -name node_modules -prune -o \( "${expr[@]}" \) -print
+  fi
+}
+
+
+# find/replace
+find-replace() {
+  find . -type f -not -path '*/.*' -exec sed -i '' "s/$1/$2/g" {} +
+}
+
+
+# Check deps coverage (/liminex/data-infra/cicd/check-deps-coverage/script/README.md)
+# check-deps-coverage gg4a/rooney          # check only
+# check-deps-coverage --fix gg4a/rooney    # check, then update Deps
+check-deps-coverage() {
+  local fix="" svc root="${LIMINEX:-$HOME/liminex}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --fix) fix="--fix" ;;
+      *) svc="${1%/}"; svc="${svc%/cicd.toml}" ;;
+    esac
+    shift
+  done
+  [ -n "$svc" ] || { echo "usage: check-deps-coverage [--fix] <service-dir>   e.g. check-deps-coverage gg4a/rooney" >&2; return 1; }
+  [ -f "$root/$svc/cicd.toml" ] || { echo "no cicd.toml at $root/$svc" >&2; return 1; }
+
+  docker run --rm \
+    --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+    -v "$root":/liminex -w /liminex \
+    -v cdc-gomod:/go/pkg/mod -v cdc-gobuild:/root/.cache/go-build \
+    -e CGO_ENABLED=0 -e GOFLAGS=-buildvcs=false \
+    golang:1.26.3-alpine3.23 \
+    sh -c "apk add --no-cache strace git build-base >/dev/null &&
+      go run /liminex/data-infra/cicd/check-deps-coverage/script trace \
+        --cicd-toml /liminex/$svc/cicd.toml \
+        --dir /liminex/$svc \
+        $fix \
+        -- /liminex/golang/gotest.sh"
+}
 
 
 # Navigation
 alias li='cd /liminex/'
 alias gc='cd /liminex/gg4a/go-cortana/'
 alias gt='cd /liminex/gg4a/tests/'
+eval "$(mise activate zsh)"
+
+
+####### REFERENCE #######
+
+# Get the sha of the merge commit for a pr
+# gh pr view <pr-number> --json mergeCommit
+
+# Check if commit is ancestor of another
+# git merge-base --is-ancestor <maybe-ancestor-commit> <descendant-commit>
+# echo $?    0: true, 1: false

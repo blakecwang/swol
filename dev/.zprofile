@@ -2,6 +2,10 @@
 export PATH="$PATH:/Users/bwang/.docker/bin"
 # End of Docker Desktop section.
 
+# .zprofile is for exporting environment variables and runs
+# once on login, before .zshrc
+
+
 # Homebrew environment setup
 eval "$(/opt/homebrew/bin/brew shellenv zsh)"
 
@@ -9,27 +13,10 @@ eval "$(/opt/homebrew/bin/brew shellenv zsh)"
 export PATH="/Users/bwang/.rbenv/shims:${PATH}"
 export RBENV_SHELL=zsh
 
-# The old way...
-# eval "$(/opt/homebrew/bin/brew shellenv zsh)"
-# eval export PATH="/Users/bwang/.rbenv/shims:${PATH}"
-# export RBENV_SHELL=zsh
-# command rbenv rehash 2>/dev/null
-# rbenv() {
-#   local command
-#   command="${1:-}"
-#   if [ "$#" -gt 0 ]; then
-#     shift
-#   fi
-# 
-#   case "$command" in
-#   rehash|shell)
-#     eval "$(rbenv "sh-$command" "$@")";;
-#   *)
-#     command rbenv "$command" "$@";;
-#   esac
-# }
-
 # Load local secrets if the file exists
 if [ -f "$HOME/.secrets" ]; then
     source "$HOME/.secrets"
 fi
+
+export GO_CORTANA_PRETTY_LOGS=1
+export GO_CORTANA_LOG_TO_FILE=1
