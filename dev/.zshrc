@@ -108,6 +108,8 @@ prd-dbr() { _db_run rawley.read.prod.rds.internal.goguardian.com rawley "$PRD_RA
 prd-dbx() { _db_run x3.read.prod.rds.internal.goguardian.com x3 "$PRD_X3_DB_PASSWORD" "$1"; }
 prd-dbp() { _db_run panther.read.prod.rds.internal.goguardian.com panther "$STG_PANTHER_DB_PASSWORD" "$1"; }
 
+# won't be there forever
+prd-dbx-snapshot() { _db_run x3-db-snapshot-10-19-26-apettit.crnsmyryvp1u.us-west-2.rds.amazonaws.com x3 "$PRD_X3_DB_PASSWORD" "$1"; }
 
 # grep: skip node_modules on recursive searches (-r / -R)
 alias grep='grep --color=auto --exclude-dir=node_modules'
@@ -173,7 +175,44 @@ check-deps-coverage() {
 alias li='cd /liminex/'
 alias gc='cd /liminex/gg4a/go-cortana/'
 alias gt='cd /liminex/gg4a/tests/'
+alias pl='cd ~/proglog/'
+
+# scratchpad
+alias sp='vi ~/scratch/main.go'
+alias sr='(cd ~/scratch && go run .)'
+
+
 eval "$(mise activate zsh)"
+
+
+# Full-text search of Claude Code session transcripts, newest first.
+# Usage: claude-search <term>   then: claude --resume <session-id>
+claude-search() {
+  if [[ -z "$1" ]]; then
+    echo "usage: claude-search <term>" >&2
+    return 1
+  fi
+  local f
+  grep -rli --include='*.jsonl' -- "$1" ~/.claude/projects 2>/dev/null \
+    | grep -v '/subagents/' \
+    | while read -r f; do printf '%s\t%s\n' "$(stat -f %m "$f")" "$f"; done \
+    | sort -rn | cut -f2- \
+    | while read -r f; do
+        printf '%s  %s  %s\n' "$(stat -f %Sm -t '%Y-%m-%d %H:%M' "$f")" "${f:t:r}" "${f:h:t}"
+        printf '    %s\n\n' "$(jq -r 'select(.type=="user" and (.message.content|type)=="string" and (.message.content|startswith("<")|not)) | .message.content' "$f" 2>/dev/null \
+          | head -1 | cut -c1-100)"
+      done
+}
+
+owner() {
+  local file
+  file=$(grep -rlE --include=cicd.toml "^Name = ['\"]$1['\"]" /liminex/ | head -1)
+  if [[ -z "$file" ]]; then
+    echo "No cicd.toml found with Name '$1'"
+    return 1
+  fi
+  grep -E '^Owner' "$file" | cut -d= -f2 | tr -d " '\"" | grep . || echo "Owner not found in $file"
+}
 
 
 ####### REFERENCE #######
@@ -184,3 +223,6 @@ eval "$(mise activate zsh)"
 # Check if commit is ancestor of another
 # git merge-base --is-ancestor <maybe-ancestor-commit> <descendant-commit>
 # echo $?    0: true, 1: false
+
+# x3 prod write
+# mariadb -A -h x3.write.prod.rds.internal.goguardian.com -u x3master -p"$PRD_X3_DB_WRITE_PASSWORD" x3

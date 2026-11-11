@@ -1,10 +1,11 @@
+# .zprofile is for exporting environment variables and runs
+# once on login, before .zshrc
+
 # The following lines were added by Docker Desktop to add commands to your PATH.
 export PATH="$PATH:/Users/bwang/.docker/bin"
 # End of Docker Desktop section.
 
-# .zprofile is for exporting environment variables and runs
-# once on login, before .zshrc
-
+export PATH="$HOME/.local/bin:$PATH"
 
 # Homebrew environment setup
 eval "$(/opt/homebrew/bin/brew shellenv zsh)"

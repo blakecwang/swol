@@ -84,6 +84,7 @@ let g:go_fmt_command = "goimports"            " Auto-format and manage imports o
 let g:go_diagnostics_level = 2
 highlight goDiagnosticError   ctermfg=15 ctermbg=160 guifg=#ffffff guibg=#d70000
 highlight goDiagnosticWarning ctermfg=0  ctermbg=220 guifg=#000000 guibg=#ffd700
+set cursorlineopt=number
 
 " Highlight extra Go details for readability
 let g:go_highlight_types = 1
